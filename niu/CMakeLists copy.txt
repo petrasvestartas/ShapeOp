@@ -1,0 +1,165 @@
+cmake_minimum_required(VERSION 3.1)
+project(ShapeOp)
+include(ExternalProject)
+option(DOWNLOAD_DEPENDECIES ON)
+option(BUILD OFF)
+# CoCompilermpiler flags
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang") #Tests for Clang and AppleClang which is defined in CMake 3.0 and higher
+    message("Clang.")
+    set(CMAKE_CXX_FLAGS "-std=c++11 -stdlib=libc++ -Wall -g")
+    set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
+	set(OPENMP OFF CACHE BOOL "OpenMP")
+elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+    message("GCC.")
+    set(CMAKE_CXX_FLAGS "-std=c++11 -Wall -g")
+    set(CMAKE_CXX_FLAGS_RELEASE "-Ofast -DNDEBUG")
+	set(OPENMP ON CACHE BOOL "OpenMP")
+elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
+    message("ICC.")
+    if(WIN32)
+        set(CMAKE_CXX_FLAGS "/Qstd=c++11")
+        set(CMAKE_CXX_FLAGS_RELEASE "/O3 /DNDEBUG")
+    else()
+        set(CMAKE_CXX_FLAGS "-std=c++11")
+        set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
+    endif()
+	set(OPENMP OFF CACHE BOOL "OpenMP")
+elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+    message("MSVC.")
+    set(CMAKE_CXX_FLAGS_DEBUG "/MTd")
+    set(CMAKE_CXX_FLAGS_RELEASE "/MT /Ox /Ot /fp:fast /GS- /GL /DNDEBUG")
+    set(CMAKE_EXE_LINKER_FLAGS_RELEASE "/LTCG /INCREMENTAL:NO /OPT:REF")
+	set(OPENMP ON CACHE BOOL "OpenMP")
+else()
+    message( FATAL_ERROR "CXX compiler not recognized. CMake will quit." )
+endif()
+set(CMAKE_CXX_STANDARD 14)
+
+# Make a release library build by default. This does not set the default build type for IDE'separate_arguments
+# like Visual Studio and Xcode. There seems to be no way to set default types in the CMakeList. See discussion here:
+# http://stackoverflow.com/questions/24460486/cmake-build-type-not-being-used-in-cmakelists-txt
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE "Release")
+endif()
+
+message(${CMAKE_BUILD_TYPE})
+
+# Compiler flags
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang") #Tests for Clang and AppleClang which is defined in CMake 3.0 and higher
+    message("Clang.")
+    set(CMAKE_CXX_FLAGS "-std=c++11 -stdlib=libc++ -Wall -g")
+    set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
+	set(OPENMP OFF CACHE BOOL "OpenMP")
+elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+    message("GCC.")
+    set(CMAKE_CXX_FLAGS "-std=c++11 -Wall -g")
+    set(CMAKE_CXX_FLAGS_RELEASE "-Ofast -DNDEBUG")
+	set(OPENMP ON CACHE BOOL "OpenMP")
+elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
+    message("ICC.")
+    if(WIN32)
+        set(CMAKE_CXX_FLAGS "/Qstd=c++11")
+        set(CMAKE_CXX_FLAGS_RELEASE "/O3 /DNDEBUG")
+    else()
+        set(CMAKE_CXX_FLAGS "-std=c++11")
+        set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
+    endif()
+	set(OPENMP OFF CACHE BOOL "OpenMP")
+elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+    message("MSVC.")
+    set(CMAKE_CXX_FLAGS_DEBUG "/MTd")
+    set(CMAKE_CXX_FLAGS_RELEASE "/MT /Ox /Ot /fp:fast /GS- /GL /DNDEBUG")
+    set(CMAKE_EXE_LINKER_FLAGS_RELEASE "/LTCG /INCREMENTAL:NO /OPT:REF")
+	set(OPENMP ON CACHE BOOL "OpenMP")
+else()
+    message( FATAL_ERROR "CXX compiler not recognized. CMake will quit." )
+endif()
+
+if(DOWNLOAD_DEPENDECIES)
+
+    # Eigen
+    ExternalProject_Add(Eigen
+    GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git
+    GIT_TAG 3.3.7
+    PREFIX ${CMAKE_BINARY_DIR}/eigen
+    CONFIGURE_COMMAND ""
+    BUILD_COMMAND ""
+    INSTALL_COMMAND ""
+    LOG_DOWNLOAD ON
+    )
+
+    ExternalProject_Add(Nanobind
+    GIT_REPOSITORY https://github.com/wjakob/nanobind.git
+    GIT_TAG master
+    PREFIX ${CMAKE_BINARY_DIR}/nanobind
+    CONFIGURE_COMMAND ""
+    BUILD_COMMAND ""
+    INSTALL_COMMAND ""
+    LOG_DOWNLOAD ON
+    )
+
+
+    #OpenMP
+    if(OPENMP)
+    FIND_PACKAGE(OpenMP QUIET)
+    if(OPENMP_FOUND)
+        message("OpenMP found. OpenMP activated in release.")
+        set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${OpenMP_CXX_FLAGS}")
+        set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} ${OpenMP_C_FLAGS}")
+        set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} ${OpenMP_EXE_LINKER_FLAGS}")
+        add_definitions(-DSHAPEOP_OPENMP)
+    else()
+        message("OpenMP not found.")
+    endif()
+    endif()
+
+endif()
+
+
+
+if(BUILD)
+    # Where are the headers found?
+    # add_subdirectory(libShapeOp)
+    include_directories("libShapeOp/src/")
+    include_directories("libShapeOp/api/")
+    include_directories(${CMAKE_BINARY_DIR}/eigen/src/Eigen)
+    include_directories(${CMAKE_BINARY_DIR}/nanobind/src/Nanobind/include)
+
+    # h files
+    file(GLOB SHAPEOP_HEADERS "libShapeOp/src/*.h")
+    # cpp files
+    file(GLOB SHAPEOP_SOURCES "libShapeOp/src/*.cpp")
+    # h files
+    file(GLOB API_HEADERS "libShapeOp/api/*.h")
+    # cpp files
+    file(GLOB API_SOURCES "libShapeOp/api/*.cpp")
+
+    # Shared library
+    set(HEADERS ${SHAPEOP_HEADERS} ${API_HEADERS})
+    set(SOURCES ${SHAPEOP_SOURCES} ${API_SOURCES})
+    add_library(ShapeOp SHARED ${HEADERS} ${SOURCES})
+    # add_dependencies(ShapeOp Eigen)
+    # add_dependencies(ShapeOp Nanobind)
+
+    # Executable
+    # add_executable(ShapeOpExecutable libShapeOp/examples/main.cpp)
+    # target_link_libraries(ShapeOpExecutable ShapeOp)
+    # add_dependencies(ShapeOpExecutable Eigen)
+    # add_dependencies(ShapeOpExecutable Nanobind)
+
+    # Nanonebind
+
+    find_package(Python 3.9 COMPONENTS Interpreter Development.Module REQUIRED)
+
+    if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+        set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build." FORCE)
+        set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
+    endif()
+
+    include(${CMAKE_BINARY_DIR}/nanobind/src/Nanobind/cmake/nanobind-config.cmake)
+    include(/home/petras/brg/2_code/ShapeOp/build/nanobind/src/Nanobind/cmake/nanobind-config.cmake)
+    nanobind_add_module(NanoShapeOp libShapeOp/examples/main.cpp)
+    target_link_libraries(NanoShapeOp PRIVATE ShapeOp)
+    # add_dependencies(ShapeOpNano Eigen)
+    # add_dependencies(ShapeOpNano Nanobind)
+endif()
